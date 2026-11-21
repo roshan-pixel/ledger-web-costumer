@@ -246,9 +246,9 @@ function selectProd(id, name, price) {
   recalcRow(id);
 }
 
-document.addEventListener('click', e => {
+['click','touchstart'].forEach(ev => document.addEventListener(ev, e => {
   if (!e.target.closest('.ac-wrapper')) hideAllAC();
-});
+}, {passive: true}));
 
 let acRaf = 0;
 function repositionAC() {
