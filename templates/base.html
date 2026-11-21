@@ -11,18 +11,31 @@
   {% block head %}{% endblock %}
 </head>
 <body>
+  <!-- Mobile top bar -->
+  <div class="topbar" id="topbar">
+    <button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="topbar-title">
+      <span>Nexus</span> <span style="color:var(--muted);font-weight:400;">Customer</span>
+    </div>
+  </div>
+
+  <!-- Overlay backdrop -->
+  <div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
       <h2>Nexus Customer</h2>
       <p>Ledger Portal</p>
     </div>
-    <a href="/invoice" class="nav-link {% if request.path in ['/', '/invoice'] %}active{% endif %}">
+    <a href="/invoice" class="nav-link {% if request.path in ['/', '/invoice'] %}active{% endif %}" onclick="closeSidebar()">
       <span class="icon">🧾</span> New Invoice
     </a>
-    <a href="/inventory" class="nav-link {% if request.path == '/inventory' %}active{% endif %}">
+    <a href="/inventory" class="nav-link {% if request.path == '/inventory' %}active{% endif %}" onclick="closeSidebar()">
       <span class="icon">📦</span> Live Inventory
     </a>
-    <a href="/disease_guide" class="nav-link {% if request.path == '/disease_guide' %}active{% endif %}">
+    <a href="/disease_guide" class="nav-link {% if request.path == '/disease_guide' %}active{% endif %}" onclick="closeSidebar()">
       <span class="icon">🌿</span> Disease Guide
     </a>
   </nav>
@@ -32,9 +45,18 @@
   </div>
 
   <script>
-    // Mobile sidebar toggle
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('overlay').classList.toggle('active');
+      document.getElementById('hamburger').classList.toggle('open');
+    }
+    function closeSidebar() {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('overlay').classList.remove('active');
+      document.getElementById('hamburger').classList.remove('open');
+    }
     document.addEventListener('keydown', e => {
-      if (e.key === 'm' && e.ctrlKey) document.getElementById('sidebar').classList.toggle('open');
+      if (e.key === 'm' && e.ctrlKey) toggleSidebar();
     });
   </script>
   {% block scripts %}{% endblock %}
