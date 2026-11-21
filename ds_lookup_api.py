@@ -1,4 +1,5 @@
 import os
+os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH', '0')  # browser lives inside the venv (survives Render build->runtime)
 import tempfile
 import threading
 from playwright.sync_api import sync_playwright
