@@ -187,9 +187,12 @@ function onProdInput(id) {
   const rect = inp.getBoundingClientRect();
   const list = document.getElementById(`ac-${id}`);
   const isMobile = window.innerWidth <= 768;
-  const maxH = isMobile ? Math.round(window.innerHeight * 0.42) : 230;
-  const spaceBelow = window.innerHeight - rect.bottom - 8;
-  const spaceAbove = rect.top - 8;
+  const vv = window.visualViewport;
+  const viewBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+  const viewTop = vv ? vv.offsetTop : 0;
+  const maxH = isMobile ? Math.round((viewBottom - viewTop) * 0.42) : 230;
+  const spaceBelow = viewBottom - rect.bottom - 8;
+  const spaceAbove = rect.top - viewTop - 8;
   const openAbove = spaceBelow < 180 && spaceAbove > spaceBelow;
 
   list.style.position = 'fixed';
@@ -210,10 +213,12 @@ function onProdInput(id) {
 
   if (openAbove) {
     list.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+    list.style.maxHeight = Math.min(maxH, Math.max(120, spaceAbove)) + 'px';
     list.style.top = '';
   } else {
     list.style.top = (rect.bottom + 4) + 'px';
     list.style.bottom = '';
+    list.style.maxHeight = Math.min(maxH, Math.max(120, spaceBelow)) + 'px';
   }
 
   list.innerHTML = filtered.map(p => {
@@ -245,8 +250,21 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.ac-wrapper')) hideAllAC();
 });
 
-window.addEventListener('scroll', hideAllAC, true);
-window.addEventListener('resize', hideAllAC);
+let acRaf = 0;
+function repositionAC() {
+  if (acRaf) return;
+  acRaf = requestAnimationFrame(() => {
+    acRaf = 0;
+    const open = [...document.querySelectorAll('.ac-list')].find(l => l.style.display === 'block');
+    if (open) onProdInput(open.id.replace('ac-', ''));
+  });
+}
+window.addEventListener('scroll', e => {
+  if (e.target && e.target.classList && e.target.classList.contains('ac-list')) return;
+  repositionAC();
+}, true);
+window.addEventListener('resize', repositionAC);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', repositionAC);
 
 function getItems() {
   const rows = document.querySelectorAll('[id^="row-"]');
