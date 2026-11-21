@@ -42,7 +42,11 @@ def init_db():
             notes TEXT DEFAULT ''
         )
     ''')
-    c.execute('CREATE TABLE IF NOT EXISTS ds_cache (ds_code TEXT PRIMARY KEY, ds_name TEXT, mobile TEXT)')
+    c.execute('CREATE TABLE IF NOT EXISTS ds_cache (ds_code TEXT PRIMARY KEY, ds_name TEXT, mobile TEXT, data TEXT)')
+    try:
+        c.execute('ALTER TABLE ds_cache ADD COLUMN data TEXT')
+    except Exception:
+        pass
     try:
         c.execute("ALTER TABLE customer_invoices ADD COLUMN ds_code TEXT DEFAULT ''")
     except Exception:
@@ -201,15 +205,22 @@ def _lookup_invoices(ds_code):
 
 def _cache_get(ds_code):
     conn = get_db(); c = conn.cursor()
-    c.execute("SELECT ds_name, mobile FROM ds_cache WHERE ds_code=?", (ds_code,))
+    c.execute("SELECT ds_name, mobile, data FROM ds_cache WHERE ds_code=?", (ds_code,))
     row = c.fetchone(); conn.close()
-    return {'ds_code': ds_code, 'ds_name': row[0], 'mobile': row[1]} if row else None
+    if not row:
+        return None
+    try:
+        if row[2]:
+            return json.loads(row[2])
+    except Exception:
+        pass
+    return {'ds_code': ds_code, 'ds_name': row[0], 'mobile': row[1]}
 
 
 def _cache_put(d):
     conn = get_db(); c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO ds_cache (ds_code, ds_name, mobile) VALUES (?,?,?)",
-              (d['ds_code'], d.get('ds_name', ''), d.get('mobile', '')))
+    c.execute("INSERT OR REPLACE INTO ds_cache (ds_code, ds_name, mobile, data) VALUES (?,?,?,?)",
+              (d['ds_code'], d.get('ds_name', ''), d.get('mobile', ''), json.dumps(d)))
     conn.commit(); conn.close()
 
 
