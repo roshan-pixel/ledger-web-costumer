@@ -396,8 +396,9 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .ac-ok  { color: var(--green); font-size: .7rem; font-weight: 700; white-space: nowrap; }
 
 /* ── INVOICE MOBILE CARDS ────────────────────────── */
-.inv-table-wrap { display: block; }
-.inv-mobile-items { display: none; }
+@media (min-width: 769px) {
+  .inv-mobile-items { display: none; }
+}
 
 .inv-card {
   background: var(--surface2);

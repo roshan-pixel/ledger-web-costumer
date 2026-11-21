@@ -111,17 +111,17 @@ function addRow(name='', qty=1, price=0) {
       </div>
       <div class="ac-wrapper" style="margin-bottom:.6rem;">
         <input type="text" id="prod-${id}" placeholder="Search product…" autocomplete="off"
-          oninput="onProdInput(${id})" onfocus="onProdInput(${id})" style="font-size:.95rem;">
+          oninput="onProdInput(${id})" onfocus="onProdInput(${id})">
         <div class="ac-list" id="ac-${id}"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;align-items:end;">
         <div>
           <label style="margin-bottom:.25rem;">Qty</label>
-          <input type="number" id="qty-${id}" value="${qty}" min="0.01" step="any" oninput="recalcRow(${id})" style="font-size:.95rem;">
+          <input type="number" id="qty-${id}" value="${qty}" min="0.01" step="any" oninput="recalcRow(${id})">
         </div>
         <div>
           <label style="margin-bottom:.25rem;">Price (₹)</label>
-          <input type="number" id="price-${id}" value="${price}" min="0" step="any" oninput="recalcRow(${id})" style="font-size:.95rem;">
+          <input type="number" id="price-${id}" value="${price}" min="0" step="any" oninput="recalcRow(${id})">
         </div>
       </div>
       <div style="text-align:right;margin-top:.5rem;font-weight:700;color:var(--primary);" id="tot-${id}">₹0.00</div>
