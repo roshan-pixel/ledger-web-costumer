@@ -243,29 +243,6 @@ def api_get_invoice(inv_id):
 
 
 
-# ── Debug endpoint ───────────────────────────────────────────────────────────
-
-@app.route('/api/debug_ds')
-def api_debug_ds():
-    ds_code = request.args.get('ds_code', '62C04A').strip().upper()
-    result = {
-        'ledger_url': LEDGER_WEB_URL,
-        'ds_code': ds_code,
-    }
-    # tier 1
-    r1 = _fetch_ledger(f'/api/customer?ds_code={urllib.parse.quote(ds_code)}')
-    result['tier1'] = r1
-    # tier 2
-    r2 = _fetch_ledger('/api/mizoram_bronze')
-    result['tier2_type'] = type(r2).__name__
-    result['tier2_len'] = len(r2) if isinstance(r2, list) else str(r2)[:200]
-    # tier 3
-    r3 = _fetch_ledger('/api/invoice/list')
-    result['tier3_type'] = type(r3).__name__
-    result['tier3_len'] = len(r3) if isinstance(r3, list) else str(r3)[:200]
-    return jsonify(result)
-
-
 # ── Error Handlers ────────────────────────────────────────────────────────────
 
 @app.errorhandler(404)
