@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>{% block title %}Customer Ledger{% endblock %} — Nexus</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <h2>Nexus Customer</h2>
+      <p>Ledger Portal</p>
+    </div>
+    <a href="/dashboard" class="nav-link {% if request.path in ['/', '/dashboard'] %}active{% endif %}">
+      <span class="icon">🏠</span> Dashboard
+    </a>
+    <a href="/invoice" class="nav-link {% if request.path == '/invoice' %}active{% endif %}">
+      <span class="icon">🧾</span> New Invoice
+    </a>
+    <a href="/invoice_history" class="nav-link {% if request.path == '/invoice_history' %}active{% endif %}">
+      <span class="icon">📋</span> Invoice History
+    </a>
+    <a href="/inventory" class="nav-link {% if request.path == '/inventory' %}active{% endif %}">
+      <span class="icon">📦</span> Live Inventory
+    </a>
+    <a href="/disease_guide" class="nav-link {% if request.path == '/disease_guide' %}active{% endif %}">
+      <span class="icon">🌿</span> Disease Guide
+    </a>
+  </nav>
+
+  <div class="main">
+    {% block content %}{% endblock %}
+  </div>
+
+  <script>
+    // Mobile sidebar toggle
+    document.addEventListener('keydown', e => {
+      if (e.key === 'm' && e.ctrlKey) document.getElementById('sidebar').classList.toggle('open');
+    });
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

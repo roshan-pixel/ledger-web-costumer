@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+customer.db
+*.db
+.env
+*.log

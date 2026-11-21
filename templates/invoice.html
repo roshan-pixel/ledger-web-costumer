@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}New Invoice{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Create Invoice</h1>
+
+<div class="card" style="max-width:860px;margin:0 auto;">
+  <!-- Customer Info -->
+  <div class="grid-2" style="margin-bottom:1.5rem;">
+    <div>
+      <label>Customer Name *</label>
+      <input id="custName" type="text" placeholder="Enter full name" autocomplete="off">
+    </div>
+    <div>
+      <label>Phone Number</label>
+      <input id="custPhone" type="tel" placeholder="e.g. 9876543210" autocomplete="off">
+    </div>
+  </div>
+
+  <div style="margin-bottom:1.5rem;">
+    <label>Notes / Address</label>
+    <textarea id="custNotes" rows="2" placeholder="Delivery address or remarks…"></textarea>
+  </div>
+
+  <!-- Items Section -->
+  <div style="border-top:1px solid var(--border);padding-top:1.5rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <h3 style="margin:0;font-size:1rem;font-weight:600;">Items</h3>
+      <button class="btn btn-ghost" id="addRowBtn" style="font-size:.82rem;" onclick="addRow()">+ Add Item</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:42%;">Product</th>
+          <th style="width:14%;">Qty</th>
+          <th style="width:18%;">Price (₹)</th>
+          <th style="width:18%;">Total</th>
+          <th style="width:8%;"></th>
+        </tr></thead>
+        <tbody id="itemsBody"></tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:1.5rem;text-align:right;">
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:.4rem;">GRAND TOTAL</div>
+      <div id="grandTotal" style="font-size:2rem;font-weight:700;color:var(--primary);">₹0.00</div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div style="border-top:1px solid var(--border);padding-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;" class="no-print">
+    <button class="btn btn-ghost" onclick="window.print()">🖨 Print Preview</button>
+    <button class="btn btn-primary" id="saveBtn" onclick="saveInvoice()">💾 Save Invoice</button>
+  </div>
+
+  <!-- Success Toast -->
+  <div id="toast" style="display:none;margin-top:1rem;padding:1rem 1.5rem;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);border-radius:12px;color:var(--green);font-weight:600;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let products = [];
+let rowCount = 0;
+
+// Load products from live inventory
+async function loadProducts() {
+  try {
+    const r = await fetch('/api/stock_check');
+    const d = await r.json();
+    products = d.products || [];
+  } catch(e) {
+    products = [];
+  }
+}
+
+function addRow(name='', qty=1, price=0) {
+  rowCount++;
+  const id = rowCount;
+  const tbody = document.getElementById('itemsBody');
+  const tr = document.createElement('tr');
+  tr.id = `row-${id}`;
+  tr.innerHTML = `
+    <td>
+      <div class="ac-wrapper">
+        <input type="text" id="prod-${id}" placeholder="Search product…" autocomplete="off"
+          oninput="onProdInput(${id})" onfocus="onProdInput(${id})">
+        <div class="ac-list" id="ac-${id}"></div>
+      </div>
+    </td>
+    <td><input type="number" id="qty-${id}" value="${qty}" min="0.01" step="any" oninput="recalcRow(${id})"></td>
+    <td><input type="number" id="price-${id}" value="${price}" min="0" step="any" oninput="recalcRow(${id})"></td>
+    <td style="font-weight:600;color:var(--primary);" id="tot-${id}">₹0.00</td>
+    <td><button class="btn btn-danger" style="padding:.4rem .7rem;font-size:.8rem;" onclick="removeRow(${id})">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+  recalcRow(id);
+  document.getElementById(`prod-${id}`).focus();
+}
+
+function removeRow(id) {
+  document.getElementById(`row-${id}`)?.remove();
+  recalcGrand();
+}
+
+function recalcRow(id) {
+  const qty = parseFloat(document.getElementById(`qty-${id}`)?.value || 0);
+  const price = parseFloat(document.getElementById(`price-${id}`)?.value || 0);
+  const tot = qty * price;
+  const el = document.getElementById(`tot-${id}`);
+  if (el) el.textContent = '₹' + tot.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  recalcGrand();
+}
+
+function recalcGrand() {
+  let grand = 0;
+  document.querySelectorAll('#itemsBody tr').forEach(tr => {
+    const id = tr.id.replace('row-', '');
+    const qty = parseFloat(document.getElementById(`qty-${id}`)?.value || 0);
+    const price = parseFloat(document.getElementById(`price-${id}`)?.value || 0);
+    grand += qty * price;
+  });
+  document.getElementById('grandTotal').textContent = '₹' + grand.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function onProdInput(id) {
+  const val = (document.getElementById(`prod-${id}`)?.value || '').toLowerCase();
+  const list = document.getElementById(`ac-${id}`);
+  const filtered = products.filter(p => p.name.toLowerCase().includes(val)).slice(0, 20);
+  if (!filtered.length) { list.style.display = 'none'; return; }
+  list.innerHTML = filtered.map(p => {
+    const rem = p.remaining;
+    const badge = rem <= 0
+      ? `<span class="ac-oos">OOS</span>`
+      : rem <= 5
+      ? `<span class="ac-low">Low: ${rem}</span>`
+      : `<span class="ac-ok">In stock: ${rem}</span>`;
+    return `<div class="ac-item" onclick="selectProd(${id}, '${p.name.replace(/'/g,"\\'")}', ${p.price})">
+      <span>${p.name}</span>${badge}
+    </div>`;
+  }).join('');
+  list.style.display = 'block';
+}
+
+function selectProd(id, name, price) {
+  document.getElementById(`prod-${id}`).value = name;
+  document.getElementById(`price-${id}`).value = price;
+  document.getElementById(`ac-${id}`).style.display = 'none';
+  recalcRow(id);
+}
+
+document.addEventListener('click', e => {
+  document.querySelectorAll('.ac-list').forEach(l => {
+    if (!l.parentElement.contains(e.target)) l.style.display = 'none';
+  });
+});
+
+function getItems() {
+  const rows = document.querySelectorAll('#itemsBody tr');
+  const items = [];
+  rows.forEach(tr => {
+    const id = tr.id.replace('row-', '');
+    const name = (document.getElementById(`prod-${id}`)?.value || '').trim();
+    const qty = parseFloat(document.getElementById(`qty-${id}`)?.value || 0);
+    const price = parseFloat(document.getElementById(`price-${id}`)?.value || 0);
+    if (name && qty > 0) items.push({name, qty, price});
+  });
+  return items;
+}
+
+async function saveInvoice() {
+  const name = document.getElementById('custName').value.trim();
+  if (!name) { alert('Customer name is required'); return; }
+  const items = getItems();
+  if (!items.length) { alert('Add at least one item'); return; }
+
+  document.getElementById('saveBtn').disabled = true;
+  document.getElementById('saveBtn').textContent = 'Saving…';
+
+  try {
+    const r = await fetch('/api/customer_invoice', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        customer_name: name,
+        customer_phone: document.getElementById('custPhone').value.trim(),
+        notes: document.getElementById('custNotes').value.trim(),
+        items: items.map(i => ({description: i.name, qty: i.qty, price: i.price}))
+      })
+    });
+    const d = await r.json();
+    if (d.success) {
+      const toast = document.getElementById('toast');
+      toast.textContent = `✓ Invoice ${d.invoice_no} saved — ₹${d.amount.toLocaleString('en-IN',{maximumFractionDigits:0})}`;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 5000);
+      // Reset form
+      document.getElementById('custName').value = '';
+      document.getElementById('custPhone').value = '';
+      document.getElementById('custNotes').value = '';
+      document.getElementById('itemsBody').innerHTML = '';
+      recalcGrand();
+    } else {
+      alert('Error: ' + (d.error || 'Unknown error'));
+    }
+  } catch(e) {
+    alert('Network error: ' + e.message);
+  } finally {
+    document.getElementById('saveBtn').disabled = false;
+    document.getElementById('saveBtn').textContent = '💾 Save Invoice';
+  }
+}
+
+loadProducts().then(() => addRow());
+</script>
+{% endblock %}

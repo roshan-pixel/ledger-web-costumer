@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Disease Guide{% endblock %}
+
+{% block content %}
+<h1 class="page-title">🌿 Disease Guide</h1>
+
+<div class="search-bar no-print">
+  <span style="color:var(--muted);">🔍</span>
+  <input id="searchInput" placeholder="Search disease, symptoms, Mizo name…" oninput="search()">
+  <select id="catFilter" onchange="search()" style="width:auto;padding:.4rem .8rem;font-size:.85rem;">
+    <option value="">All Categories</option>
+  </select>
+  <select id="langFilter" onchange="renderList()" style="width:auto;padding:.4rem .8rem;font-size:.85rem;">
+    <option value="en">English</option>
+    <option value="mizo">Mizo</option>
+  </select>
+</div>
+
+<div style="display:flex;gap:1.5rem;align-items:flex-start;">
+  <!-- List Panel -->
+  <div style="flex:0 0 320px;max-height:72vh;overflow-y:auto;" id="listPanel">
+    <div id="diseaseList" style="display:flex;flex-direction:column;gap:.5rem;">
+      <div style="color:var(--muted);padding:2rem;text-align:center;">Loading…</div>
+    </div>
+  </div>
+
+  <!-- Detail Panel -->
+  <div style="flex:1;" id="detailPanel">
+    <div class="card" style="color:var(--muted);text-align:center;padding:3rem;">
+      Select a disease from the list to see details
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allDiseases = [];
+let categories = [];
+let filtered = [];
+let selectedIdx = null;
+
+async function loadAll() {
+  try {
+    const r = await fetch('/api/disease_guide');
+    const d = await r.json();
+    allDiseases = d.diseases || [];
+    categories = d.categories || [];
+    filtered = allDiseases;
+
+    const sel = document.getElementById('catFilter');
+    sel.innerHTML = '<option value="">All Categories</option>' +
+      categories.map(c => `<option value="${c}">${c}</option>`).join('');
+
+    renderList();
+  } catch(e) {
+    document.getElementById('diseaseList').innerHTML =
+      `<div style="color:var(--red);padding:1rem;">Could not load disease guide: ${e.message}</div>`;
+  }
+}
+
+function search() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const cat = document.getElementById('catFilter').value;
+  filtered = allDiseases.filter(d => {
+    const matchCat = !cat || d.category_name === cat;
+    const matchQ = !q ||
+      (d.disease_name || '').toLowerCase().includes(q) ||
+      (d.simple_name || '').toLowerCase().includes(q) ||
+      (d.simple_name_mizo || '').toLowerCase().includes(q) ||
+      (d.search_tags || '').toLowerCase().includes(q) ||
+      (d.search_tags_mizo || '').toLowerCase().includes(q) ||
+      (d.symptoms || '').toLowerCase().includes(q);
+    return matchCat && matchQ;
+  });
+  renderList();
+}
+
+function renderList() {
+  const lang = document.getElementById('langFilter').value;
+  if (!filtered.length) {
+    document.getElementById('diseaseList').innerHTML =
+      '<div style="color:var(--muted);padding:1.5rem;text-align:center;">No results</div>';
+    return;
+  }
+  document.getElementById('diseaseList').innerHTML = filtered.map((d, i) => {
+    const name = lang === 'mizo' ? (d.simple_name_mizo || d.disease_name) : (d.simple_name || d.disease_name);
+    const active = d.id === selectedIdx ? 'background:rgba(99,102,241,.15);border-color:var(--primary);' : '';
+    return `<div class="card-sm" style="cursor:pointer;border-radius:12px;padding:1rem 1.2rem;${active}"
+      onclick="selectDisease(${d.id})">
+      <div style="font-weight:600;font-size:.9rem;">${name}</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:.2rem;">${d.category_name || ''}</div>
+    </div>`;
+  }).join('');
+}
+
+async function selectDisease(idx) {
+  selectedIdx = idx;
+  renderList();
+  document.getElementById('detailPanel').innerHTML = '<div class="card" style="color:var(--muted);text-align:center;padding:2rem;">Loading…</div>';
+
+  try {
+    const r = await fetch(`/api/disease_guide/${idx}`);
+    const d = await r.json();
+    const lang = document.getElementById('langFilter').value;
+
+    const name = lang === 'mizo' ? (d.simple_name_mizo || d.disease_name) : (d.simple_name || d.disease_name);
+    const explain = lang === 'mizo' ? (d.layman_explanation_mizo || d.layman_explanation) : (d.layman_explanation || '');
+    const symptoms = lang === 'mizo' ? (d.symptoms_mizo || d.symptoms) : (d.symptoms || '');
+
+    const products = (d.final_recommended_products || d.recommended_wellness_products || []);
+    const prodHtml = products.length
+      ? products.map(p => {
+          const pname = typeof p === 'string' ? p : (p.name || JSON.stringify(p));
+          return `<span class="badge badge-blue" style="margin:.2rem;">${pname}</span>`;
+        }).join('')
+      : '<span style="color:var(--muted);">None listed</span>';
+
+    const rows = [
+      ['Symptoms', symptoms],
+      ['Diet', d.diet],
+      ['Exercise', d.exercise],
+      ['Ayurvedic Tip', d.ayurvedic_tip],
+      ['Things to Avoid', d.things_to_avoid],
+    ].filter(([,v]) => v);
+
+    document.getElementById('detailPanel').innerHTML = `<div class="card">
+      <div style="margin-bottom:1.2rem;">
+        <span style="font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">${d.category_name || ''}</span>
+        <h2 style="margin:.4rem 0 0;font-size:1.5rem;font-weight:700;">${name}</h2>
+        ${d.disease_name !== name ? `<p style="color:var(--muted);font-size:.85rem;margin:.3rem 0 0;">${d.disease_name}</p>` : ''}
+      </div>
+
+      ${explain ? `<p style="line-height:1.7;color:var(--muted);font-size:.93rem;margin-bottom:1.4rem;">${explain}</p>` : ''}
+
+      <div style="margin-bottom:1.4rem;">
+        <label>Recommended Products</label>
+        <div style="margin-top:.4rem;">${prodHtml}</div>
+      </div>
+
+      ${rows.map(([title, val]) => `
+        <div style="margin-bottom:1rem;padding:.9rem 1rem;background:var(--surface2);border-radius:10px;">
+          <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:.4rem;">${title}</div>
+          <div style="font-size:.88rem;line-height:1.6;">${val}</div>
+        </div>
+      `).join('')}
+
+      ${d.disclaimer ? `<p style="font-size:.75rem;color:var(--muted);margin-top:1rem;font-style:italic;">${d.disclaimer}</p>` : ''}
+    </div>`;
+  } catch(e) {
+    document.getElementById('detailPanel').innerHTML =
+      `<div class="card" style="color:var(--red);text-align:center;padding:2rem;">Error: ${e.message}</div>`;
+  }
+}
+
+loadAll();
+</script>
+{% endblock %}

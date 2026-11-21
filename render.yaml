@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: ledger-web-costumer
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn --timeout 120 app:app"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: LEDGER_WEB_URL
+        value: https://ledger-web.onrender.com
