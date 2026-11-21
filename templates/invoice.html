@@ -2,9 +2,41 @@
 {% block title %}New Invoice{% endblock %}
 
 {% block content %}
+<style>
+#printInvoice{display:none;}
+@media print{
+  @page{size:A4;margin:14mm;}
+  html,body{background:#fff !important;color:#111 !important;}
+  body *{visibility:hidden;}
+  .sidebar,.topbar,.sidebar-overlay,.no-print,#invCard,.page-title{display:none !important;}
+  .main{margin:0 !important;padding:0 !important;}
+  #printInvoice,#printInvoice *{visibility:visible;}
+  #printInvoice{display:block;position:absolute;left:0;top:0;width:100%;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;}
+  #printInvoice .ph{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1f2a44;padding-bottom:10px;}
+  #printInvoice .biz{font-size:22px;font-weight:700;color:#1f2a44;}
+  #printInvoice .ttl{font-size:26px;font-weight:700;letter-spacing:2px;color:#1f2a44;text-align:right;}
+  #printInvoice .meta{display:flex;justify-content:space-between;margin:16px 0;gap:20px;}
+  #printInvoice .meta .box{flex:1;border:1px solid #cbd2dc;padding:10px 12px;border-radius:4px;}
+  #printInvoice .lbl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#667085;margin-bottom:4px;}
+  #printInvoice table{width:100%;border-collapse:collapse;margin-top:6px;}
+  #printInvoice th{background:#1f2a44 !important;color:#fff !important;padding:8px;text-align:left;font-size:11px;text-transform:uppercase;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  #printInvoice td{padding:8px;border-bottom:1px solid #dde1e8;}
+  #printInvoice tr{page-break-inside:avoid;}
+  #printInvoice .r{text-align:right;}
+  #printInvoice .c{text-align:center;}
+  #printInvoice .tot{margin-top:14px;margin-left:auto;width:260px;}
+  #printInvoice .tot div{display:flex;justify-content:space-between;padding:6px 8px;}
+  #printInvoice .tot .g{border-top:2px solid #1f2a44;font-size:15px;font-weight:700;background:#f1f3f8 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  #printInvoice .words{margin-top:10px;font-style:italic;color:#444;}
+  #printInvoice .foot{margin-top:50px;display:flex;justify-content:space-between;align-items:flex-end;}
+  #printInvoice .sig{border-top:1px solid #111;width:200px;text-align:center;padding-top:4px;font-size:11px;}
+  #printInvoice .thanks{text-align:center;margin-top:30px;color:#667085;font-size:11px;}
+}
+</style>
+<div id="printInvoice"></div>
 <h1 class="page-title">Create Invoice</h1>
 
-<div class="card" style="max-width:860px;margin:0 auto;overflow:visible;">
+<div class="card" id="invCard" style="max-width:860px;margin:0 auto;overflow:visible;">
   <!-- Customer Info -->
   <div class="grid-2" style="margin-bottom:1rem;">
     <div>
@@ -67,7 +99,8 @@
 
   <!-- Actions -->
   <div style="border-top:1px solid var(--border);padding-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;flex-wrap:wrap;" class="no-print invoice-actions">
-    <button class="btn btn-ghost" onclick="window.print()">🖨 Print Preview</button>
+    <button class="btn btn-ghost" onclick="printInvoice()">🖨 Print / PDF</button>
+    <button class="btn btn-ghost" onclick="saveInvoice(true)">💾🖨 Save &amp; Print</button>
     <button class="btn btn-primary" id="saveBtn" onclick="saveInvoice()">💾 Save Invoice</button>
   </div>
 
@@ -279,7 +312,55 @@ function getItems() {
   return items;
 }
 
-async function saveInvoice() {
+const SELLER_NAME = 'Customer Ledger';   // shown at top of printed bill – change to business name
+const SELLER_SUB = '';                   // optional address / phone line
+
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function inr(n){return '₹'+Number(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function numWords(n){
+  const a=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const b=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  const two=x=>x<20?a[x]:b[Math.floor(x/10)]+(x%10?' '+a[x%10]:'');
+  const three=x=>(x>=100?a[Math.floor(x/100)]+' Hundred'+(x%100?' ':''):'')+(x%100?two(x%100):'');
+  n=Math.round(n); if(!n) return 'Zero';
+  let out=[];const cr=Math.floor(n/1e7),lk=Math.floor(n/1e5)%100,th=Math.floor(n/1e3)%100,rest=n%1000;
+  if(cr)out.push(three(cr)+' Crore');if(lk)out.push(two(lk)+' Lakh');if(th)out.push(two(th)+' Thousand');if(rest)out.push(three(rest));
+  return out.join(' ');
+}
+function buildPrint(invNo){
+  const items=getItems();
+  const name=document.getElementById('custName').value.trim();
+  const phone=document.getElementById('custPhone').value.trim();
+  const ds=document.getElementById('dsCode').value.trim().toUpperCase();
+  const notes=document.getElementById('custNotes').value.trim();
+  const date=new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  let total=0;
+  const rows=items.map((i,k)=>{const t=i.qty*i.price;total+=t;
+    return `<tr><td class="c">${k+1}</td><td>${esc(i.name)}</td><td class="c">${i.qty}</td><td class="r">${inr(i.price)}</td><td class="r">${inr(t)}</td></tr>`;}).join('');
+  document.getElementById('printInvoice').innerHTML=`
+    <div class="ph"><div><div class="biz">${esc(SELLER_NAME)}</div><div>${esc(SELLER_SUB)}</div></div>
+      <div class="ttl">INVOICE</div></div>
+    <div class="meta">
+      <div class="box"><div class="lbl">Billed To</div><b>${esc(name)||'—'}</b>
+        ${ds?`<div>DS Code: ${esc(ds)}</div>`:''}${phone?`<div>Phone: ${esc(phone)}</div>`:''}
+        ${notes?`<div style="white-space:pre-line;">${esc(notes)}</div>`:''}</div>
+      <div class="box" style="max-width:220px;"><div class="lbl">Invoice Details</div>
+        <div>Invoice No: <b>${esc(invNo||'DRAFT')}</b></div><div>Date: ${date}</div></div>
+    </div>
+    <table><thead><tr><th class="c" style="width:6%;">#</th><th>Description</th><th class="c" style="width:10%;">Qty</th><th class="r" style="width:16%;">Rate</th><th class="r" style="width:18%;">Amount</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    <div class="tot"><div class="g"><span>Grand Total</span><span>${inr(total)}</span></div></div>
+    <div class="words">Amount in words: Rupees ${numWords(total)} Only</div>
+    <div class="foot"><div></div><div class="sig">Authorised Signature</div></div>
+    <div class="thanks">Thank you for your business!</div>`;
+}
+function printInvoice(invNo){
+  if(!getItems().length){alert('Add at least one item');return;}
+  buildPrint(typeof invNo==='string'?invNo:'');
+  setTimeout(()=>window.print(),50);
+}
+
+async function saveInvoice(printAfter) {
   const name = document.getElementById('custName').value.trim();
   if (!name) { alert('Customer name is required'); return; }
   const items = getItems();
@@ -306,6 +387,7 @@ async function saveInvoice() {
       toast.textContent = `✓ Invoice ${d.invoice_no} saved — ₹${d.amount.toLocaleString('en-IN',{maximumFractionDigits:0})}`;
       toast.style.display = 'block';
       setTimeout(() => { toast.style.display = 'none'; }, 5000);
+      if (printAfter === true) { buildPrint(d.invoice_no); }
       // Reset form
       document.getElementById('dsCode').value = '';
       document.getElementById('dsStatus').textContent = '';
@@ -315,6 +397,7 @@ async function saveInvoice() {
       document.getElementById('itemsBody').innerHTML = '';
       document.getElementById('mobileItems').innerHTML = '';
       recalcGrand();
+      if (printAfter === true) setTimeout(()=>window.print(), 50);
     } else {
       alert('Error: ' + (d.error || 'Unknown error'));
     }
