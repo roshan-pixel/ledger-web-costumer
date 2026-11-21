@@ -93,7 +93,7 @@ body {
   backdrop-filter: blur(2px);
 }
 
-.sidebar-overlay.active { display: block; }
+.sidebar-overlay.active { display: block; backdrop-filter: none; -webkit-backdrop-filter: none; }
 
 /* ── SIDEBAR ───────────────────────────────────── */
 .sidebar {
@@ -364,6 +364,27 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   .ac-oos, .ac-low, .ac-ok { font-size: .78rem; margin-top: .15rem; }
   .inv-table-wrap { display: none; }
   .inv-mobile-items { display: block; }
+
+  /* Android fix: backdrop-filter creates stacking context that hides children */
+  .card, .card-sm, .topbar, .sidebar {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .card, .card-sm { background: rgb(18, 23, 40) !important; }
+  .topbar { background: rgb(11, 15, 25) !important; }
+  .sidebar { background: rgb(14, 18, 32) !important; }
+
+  /* ensure inputs are always on top */
+  input, select, textarea {
+    position: relative;
+    z-index: 1;
+  }
+
+  .inv-card {
+    position: relative;
+    z-index: 2;
+    isolation: isolate;
+  }
 }
 
 .ac-item:hover, .ac-item:active { background: rgba(255,255,255,.07); }
