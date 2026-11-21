@@ -11,7 +11,7 @@ app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
 
 # URL of the main Ledger Web instance – set via env var in production
-LEDGER_WEB_URL = os.environ.get('LEDGER_WEB_URL', 'https://ledger-web.onrender.com').rstrip('/')
+LEDGER_WEB_URL = os.environ.get('LEDGER_WEB_URL', 'https://ledger-web-app.onrender.com').rstrip('/')
 
 DB_PATH = str(Path(__file__).parent / 'customer.db')
 
@@ -29,6 +29,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS customer_invoices (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             invoice_no TEXT,
+            ds_code TEXT DEFAULT '',
             customer_name TEXT,
             customer_phone TEXT,
             amount REAL DEFAULT 0,
@@ -38,6 +39,10 @@ def init_db():
             notes TEXT DEFAULT ''
         )
     ''')
+    try:
+        c.execute("ALTER TABLE customer_invoices ADD COLUMN ds_code TEXT DEFAULT ''")
+    except Exception:
+        pass
     conn.commit()
     conn.close()
 
@@ -127,6 +132,17 @@ def api_stock_check():
     return jsonify({'products': products})
 
 
+# ── DS Lookup API (live-proxied from main Ledger Web) ────────────────────────
+
+@app.route('/api/ds_lookup')
+def api_ds_lookup():
+    ds_code = request.args.get('ds_code', '').strip().upper()
+    if not ds_code:
+        return jsonify({'error': 'ds_code required'}), 400
+    data = _fetch_ledger(f'/api/customer?ds_code={urllib.parse.quote(ds_code)}')
+    return jsonify(data)
+
+
 # ── Disease Guide API (live-proxied from main Ledger Web) ─────────────────────
 
 @app.route('/api/disease_guide')
@@ -160,6 +176,7 @@ def api_list_invoices():
 @app.route('/api/customer_invoice', methods=['POST'])
 def api_create_invoice():
     data = request.get_json()
+    ds_code = (data.get('ds_code') or '').strip().upper()
     customer_name = (data.get('customer_name') or '').strip()
     customer_phone = (data.get('customer_phone') or '').strip()
     items = data.get('items', [])
@@ -178,9 +195,9 @@ def api_create_invoice():
     c = conn.cursor()
     c.execute('''
         INSERT INTO customer_invoices
-            (invoice_no, customer_name, customer_phone, amount, date_created, items, status, notes)
-        VALUES (?,?,?,?,?,?,?,?)
-    ''', (invoice_no, customer_name, customer_phone, total,
+            (invoice_no, ds_code, customer_name, customer_phone, amount, date_created, items, status, notes)
+        VALUES (?,?,?,?,?,?,?,?,?)
+    ''', (invoice_no, ds_code, customer_name, customer_phone, total,
           date_created, json.dumps(items), 'pending', notes))
     new_id = c.lastrowid
     conn.commit()

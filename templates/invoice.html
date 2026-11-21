@@ -6,15 +6,29 @@
 
 <div class="card" style="max-width:860px;margin:0 auto;">
   <!-- Customer Info -->
-  <div class="grid-2" style="margin-bottom:1.5rem;">
+  <div class="grid-2" style="margin-bottom:1rem;">
+    <div>
+      <label>DS Code</label>
+      <div style="display:flex;gap:.5rem;align-items:center;">
+        <input id="dsCode" type="text" placeholder="e.g. 123456" autocomplete="off"
+          style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+        <button class="btn btn-ghost" type="button" onclick="lookupDS()" style="white-space:nowrap;padding:.6rem 1rem;">
+          Look up
+        </button>
+      </div>
+      <div id="dsStatus" style="font-size:.78rem;margin-top:.35rem;color:var(--muted);min-height:1.1em;"></div>
+    </div>
     <div>
       <label>Customer Name *</label>
       <input id="custName" type="text" placeholder="Enter full name" autocomplete="off">
     </div>
+  </div>
+  <div class="grid-2" style="margin-bottom:1.5rem;">
     <div>
       <label>Phone Number</label>
       <input id="custPhone" type="tel" placeholder="e.g. 9876543210" autocomplete="off">
     </div>
+    <div></div>
   </div>
 
   <div style="margin-bottom:1.5rem;">
@@ -183,6 +197,7 @@ async function saveInvoice() {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
+        ds_code: document.getElementById('dsCode').value.trim().toUpperCase(),
         customer_name: name,
         customer_phone: document.getElementById('custPhone').value.trim(),
         notes: document.getElementById('custNotes').value.trim(),
@@ -196,6 +211,8 @@ async function saveInvoice() {
       toast.style.display = 'block';
       setTimeout(() => { toast.style.display = 'none'; }, 5000);
       // Reset form
+      document.getElementById('dsCode').value = '';
+      document.getElementById('dsStatus').textContent = '';
       document.getElementById('custName').value = '';
       document.getElementById('custPhone').value = '';
       document.getElementById('custNotes').value = '';
@@ -211,6 +228,35 @@ async function saveInvoice() {
     document.getElementById('saveBtn').textContent = '💾 Save Invoice';
   }
 }
+
+async function lookupDS() {
+  const code = document.getElementById('dsCode').value.trim().toUpperCase();
+  if (!code) { alert('Enter a DS code first'); return; }
+  const status = document.getElementById('dsStatus');
+  status.textContent = 'Looking up…';
+  status.style.color = 'var(--muted)';
+  try {
+    const r = await fetch(`/api/ds_lookup?ds_code=${encodeURIComponent(code)}`);
+    const d = await r.json();
+    if (d.error) {
+      status.textContent = '✗ Not found';
+      status.style.color = 'var(--red)';
+    } else {
+      document.getElementById('custName').value = d.ds_name || '';
+      document.getElementById('custPhone').value = d.mobile || '';
+      status.textContent = `✓ ${d.ds_name}`;
+      status.style.color = 'var(--green)';
+    }
+  } catch(e) {
+    status.textContent = '✗ Lookup failed';
+    status.style.color = 'var(--red)';
+  }
+}
+
+// Allow Enter key on DS code field to trigger lookup
+document.getElementById('dsCode').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); lookupDS(); }
+});
 
 loadProducts().then(() => addRow());
 </script>

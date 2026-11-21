@@ -8,4 +8,4 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: LEDGER_WEB_URL
-        value: https://ledger-web.onrender.com
+        value: https://ledger-web-app.onrender.com
