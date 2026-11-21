@@ -16,6 +16,11 @@
   </select>
 </div>
 
+<!-- Mobile back button (hidden on desktop) -->
+<button class="dg-back-btn" id="dgBackBtn" onclick="showList()">
+  ← Back to list
+</button>
+
 <div class="dg-layout">
   <!-- List Panel -->
   <div class="dg-list-panel" id="listPanel">
@@ -32,10 +37,7 @@
   </div>
 </div>
 
-<!-- Mobile back button (hidden on desktop) -->
-<button class="dg-back-btn" id="dgBackBtn" onclick="showList()" style="display:none;">
-  ← Back to list
-</button>
+
 {% endblock %}
 
 {% block scripts %}
@@ -102,16 +104,16 @@ function renderList() {
 function isMobile() { return window.innerWidth <= 768; }
 
 function showList() {
-  document.getElementById('listPanel').style.display = '';
-  document.getElementById('detailPanel').style.display = 'none';
-  document.getElementById('dgBackBtn').style.display = 'none';
+  document.querySelector('.dg-layout').classList.remove('show-detail');
+  document.getElementById('dgBackBtn').classList.remove('visible');
+  window.scrollTo(0, 0);
 }
 
 function showDetail() {
   if (isMobile()) {
-    document.getElementById('listPanel').style.display = 'none';
-    document.getElementById('detailPanel').style.display = '';
-    document.getElementById('dgBackBtn').style.display = 'flex';
+    document.querySelector('.dg-layout').classList.add('show-detail');
+    document.getElementById('dgBackBtn').classList.add('visible');
+    window.scrollTo(0, 0);
   }
 }
 

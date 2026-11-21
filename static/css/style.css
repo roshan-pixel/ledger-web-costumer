@@ -523,8 +523,28 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 @media (max-width: 768px) {
   .dg-layout { display: block; }
   .dg-list-panel { max-height: none; }
+  .dg-layout.show-detail .dg-list-panel { display: none; }
   .dg-detail-panel { display: none; }
-  .dg-back-btn { display: flex; }
+  .dg-layout.show-detail .dg-detail-panel { display: block; }
+  .dg-back-btn { display: none; }
+  .dg-back-btn.visible { display: flex; }
+
+  /* search bars: wrap instead of overflowing; 16px stops iOS zoom */
+  .search-bar { flex-wrap: wrap; padding: .6rem; }
+  .search-bar input { flex: 1 1 calc(100% - 3rem); min-width: 0; }
+  .search-bar > div, .search-bar select { flex: 1 1 100%; min-width: 0; }
+  .search-bar > div select { flex: 1 1 0; }
+  .search-bar select, .search-bar input, select { font-size: 16px !important; width: 100% !important; }
+  .search-bar > div { display: flex; gap: .5rem; }
+
+  /* menu below the top bar so the logo isn't covered */
+  .sidebar { padding-top: calc(var(--topbar-h) + env(safe-area-inset-top) + 1rem); }
+
+  /* compact summary tiles */
+  #kpiRow { grid-template-columns: repeat(3, 1fr) !important; gap: .5rem !important; }
+  #kpiRow .stat-tile { padding: .75rem; border-radius: 12px; }
+  #kpiRow .stat-tile .label { font-size: .6rem; letter-spacing: .5px; }
+  #kpiRow .stat-tile .value { font-size: 1.3rem; }
 }
 
 /* ── VERY SMALL (≤ 400px) ───────────────────────── */

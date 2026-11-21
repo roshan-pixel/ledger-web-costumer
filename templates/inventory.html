@@ -102,6 +102,11 @@ async function loadInventory() {
   }
 }
 
+function fmtPrice(v) {
+  const n = parseFloat(String(v).replace(/,/g,''));
+  return isNaN(n) ? v : n.toLocaleString('en-IN', {maximumFractionDigits: 2});
+}
+
 function stockBadge(rem) {
   const v = parseFloat(String(rem||'0').replace(',',''));
   if (v <= 0) return '<span class="badge badge-red">Out of Stock</span>';
@@ -150,7 +155,7 @@ function renderCards(rows) {
   const remKey = shownHeaders.find(h => h.includes('Remaining'));
   const priceKey = shownHeaders.find(h => h.includes('Price'));
   grid.innerHTML = rows.map(row => {
-    const name = row[nameKey] || '—';
+    const name = String(row[nameKey] || '—').replace(/\s*[-–]\s*$/, '');
     const rem = remKey ? row[remKey] : null;
     const price = priceKey ? row[priceKey] : null;
     const cat = row['Category'] || '';
@@ -159,7 +164,7 @@ function renderCards(rows) {
       ${cat ? `<div style="font-size:.7rem;color:var(--muted);margin-bottom:.5rem;">${cat}</div>` : ''}
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.3rem;">
         ${rem !== null ? stockBadge(rem) : ''}
-        ${price ? `<span style="font-size:.8rem;color:var(--muted);">₹${price}</span>` : ''}
+        ${price ? `<span style="font-size:.8rem;color:var(--muted);">₹${fmtPrice(price)}</span>` : ''}
       </div>
     </div>`;
   }).join('');
