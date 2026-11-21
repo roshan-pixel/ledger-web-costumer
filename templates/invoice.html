@@ -147,10 +147,22 @@ function onProdInput(id) {
   // position dropdown using fixed coords so it escapes overflow:hidden parents
   const rect = inp.getBoundingClientRect();
   const list = document.getElementById(`ac-${id}`);
+  const isMobile = window.innerWidth <= 768;
   list.style.position = 'fixed';
-  list.style.top = (rect.bottom + 4) + 'px';
-  list.style.left = rect.left + 'px';
-  list.style.width = rect.width + 'px';
+  if (isMobile) {
+    // full-width panel at bottom of screen on mobile
+    list.style.left = '8px';
+    list.style.right = '8px';
+    list.style.width = 'calc(100vw - 16px)';
+    list.style.top = (rect.bottom + 4) + 'px';
+    list.style.maxHeight = '45vh';
+  } else {
+    list.style.top = (rect.bottom + 4) + 'px';
+    list.style.left = rect.left + 'px';
+    list.style.width = Math.max(rect.width, 280) + 'px';
+    list.style.maxHeight = '230px';
+    list.style.right = '';
+  }
   list.style.zIndex = '9999';
   list.innerHTML = filtered.map(p => {
     const rem = p.remaining;
