@@ -43,7 +43,8 @@
       <button class="btn btn-ghost" id="addRowBtn" style="font-size:.82rem;" onclick="addRow()">+ Add Item</button>
     </div>
 
-    <div class="table-wrap" style="overflow:visible;">
+    <!-- Desktop table -->
+    <div class="table-wrap inv-table-wrap" style="overflow:visible;">
       <table>
         <thead><tr>
           <th style="width:42%;">Product</th>
@@ -55,6 +56,8 @@
         <tbody id="itemsBody"></tbody>
       </table>
     </div>
+    <!-- Mobile cards -->
+    <div id="mobileItems" class="inv-mobile-items"></div>
 
     <div style="margin-top:1.5rem;text-align:right;">
       <div style="font-size:.8rem;color:var(--muted);margin-bottom:.4rem;">GRAND TOTAL</div>
@@ -89,26 +92,62 @@ async function loadProducts() {
   }
 }
 
+function isMobileView() { return window.innerWidth <= 768; }
+
 function addRow(name='', qty=1, price=0) {
   rowCount++;
   const id = rowCount;
-  const tbody = document.getElementById('itemsBody');
-  const tr = document.createElement('tr');
-  tr.id = `row-${id}`;
-  tr.innerHTML = `
-    <td>
-      <div class="ac-wrapper">
+
+  if (isMobileView()) {
+    // Card-style row for mobile
+    const container = document.getElementById('mobileItems');
+    const card = document.createElement('div');
+    card.id = `row-${id}`;
+    card.className = 'inv-card';
+    card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+        <span style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--muted);">Item ${id}</span>
+        <button class="btn btn-danger" style="padding:.3rem .6rem;font-size:.75rem;" onclick="removeRow(${id})">✕ Remove</button>
+      </div>
+      <div class="ac-wrapper" style="margin-bottom:.6rem;">
         <input type="text" id="prod-${id}" placeholder="Search product…" autocomplete="off"
-          oninput="onProdInput(${id})" onfocus="onProdInput(${id})">
+          oninput="onProdInput(${id})" onfocus="onProdInput(${id})" style="font-size:.95rem;">
         <div class="ac-list" id="ac-${id}"></div>
       </div>
-    </td>
-    <td><input type="number" id="qty-${id}" value="${qty}" min="0.01" step="any" oninput="recalcRow(${id})"></td>
-    <td><input type="number" id="price-${id}" value="${price}" min="0" step="any" oninput="recalcRow(${id})"></td>
-    <td style="font-weight:600;color:var(--primary);" id="tot-${id}">₹0.00</td>
-    <td><button class="btn btn-danger" style="padding:.4rem .7rem;font-size:.8rem;" onclick="removeRow(${id})">✕</button></td>
-  `;
-  tbody.appendChild(tr);
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;align-items:end;">
+        <div>
+          <label style="margin-bottom:.25rem;">Qty</label>
+          <input type="number" id="qty-${id}" value="${qty}" min="0.01" step="any" oninput="recalcRow(${id})" style="font-size:.95rem;">
+        </div>
+        <div>
+          <label style="margin-bottom:.25rem;">Price (₹)</label>
+          <input type="number" id="price-${id}" value="${price}" min="0" step="any" oninput="recalcRow(${id})" style="font-size:.95rem;">
+        </div>
+      </div>
+      <div style="text-align:right;margin-top:.5rem;font-weight:700;color:var(--primary);" id="tot-${id}">₹0.00</div>
+    `;
+    container.appendChild(card);
+  } else {
+    // Desktop table row
+    const tbody = document.getElementById('itemsBody');
+    const tr = document.createElement('tr');
+    tr.id = `row-${id}`;
+    tr.innerHTML = `
+      <td>
+        <div class="ac-wrapper">
+          <input type="text" id="prod-${id}" placeholder="Search product…" autocomplete="off"
+            oninput="onProdInput(${id})" onfocus="onProdInput(${id})">
+          <div class="ac-list" id="ac-${id}"></div>
+        </div>
+      </td>
+      <td><input type="number" id="qty-${id}" value="${qty}" min="0.01" step="any" oninput="recalcRow(${id})"></td>
+      <td><input type="number" id="price-${id}" value="${price}" min="0" step="any" oninput="recalcRow(${id})"></td>
+      <td style="font-weight:600;color:var(--primary);" id="tot-${id}">₹0.00</td>
+      <td><button class="btn btn-danger" style="padding:.4rem .7rem;font-size:.8rem;" onclick="removeRow(${id})">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
   recalcRow(id);
   document.getElementById(`prod-${id}`).focus();
 }
@@ -129,8 +168,8 @@ function recalcRow(id) {
 
 function recalcGrand() {
   let grand = 0;
-  document.querySelectorAll('#itemsBody tr').forEach(tr => {
-    const id = tr.id.replace('row-', '');
+  document.querySelectorAll('[id^="row-"]').forEach(el => {
+    const id = el.id.replace('row-', '');
     const qty = parseFloat(document.getElementById(`qty-${id}`)?.value || 0);
     const price = parseFloat(document.getElementById(`price-${id}`)?.value || 0);
     grand += qty * price;
@@ -141,38 +180,51 @@ function recalcGrand() {
 function onProdInput(id) {
   const inp = document.getElementById(`prod-${id}`);
   const val = (inp?.value || '').toLowerCase();
-  const filtered = products.filter(p => p.name.toLowerCase().includes(val)).slice(0, 20);
+  const filtered = products.filter(p => p.name.toLowerCase().includes(val)).slice(0, 25);
   hideAllAC();
   if (!filtered.length) return;
-  // position dropdown using fixed coords so it escapes overflow:hidden parents
+
   const rect = inp.getBoundingClientRect();
   const list = document.getElementById(`ac-${id}`);
   const isMobile = window.innerWidth <= 768;
+  const maxH = isMobile ? Math.round(window.innerHeight * 0.42) : 230;
+  const spaceBelow = window.innerHeight - rect.bottom - 8;
+  const spaceAbove = rect.top - 8;
+  const openAbove = spaceBelow < 180 && spaceAbove > spaceBelow;
+
   list.style.position = 'fixed';
+  list.style.zIndex = '9999';
+  list.style.maxHeight = maxH + 'px';
+  list.style.bottom = '';
+  list.style.top = '';
+
   if (isMobile) {
-    // full-width panel at bottom of screen on mobile
     list.style.left = '8px';
     list.style.right = '8px';
     list.style.width = 'calc(100vw - 16px)';
-    list.style.top = (rect.bottom + 4) + 'px';
-    list.style.maxHeight = '45vh';
+  } else {
+    list.style.left = rect.left + 'px';
+    list.style.right = '';
+    list.style.width = Math.max(rect.width, 300) + 'px';
+  }
+
+  if (openAbove) {
+    list.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+    list.style.top = '';
   } else {
     list.style.top = (rect.bottom + 4) + 'px';
-    list.style.left = rect.left + 'px';
-    list.style.width = Math.max(rect.width, 280) + 'px';
-    list.style.maxHeight = '230px';
-    list.style.right = '';
+    list.style.bottom = '';
   }
-  list.style.zIndex = '9999';
+
   list.innerHTML = filtered.map(p => {
     const rem = p.remaining;
     const badge = rem <= 0
       ? `<span class="ac-oos">OOS</span>`
       : rem <= 5
-      ? `<span class="ac-low">Low: ${rem}</span>`
-      : `<span class="ac-ok">In stock: ${rem}</span>`;
+      ? `<span class="ac-low">Low:${rem}</span>`
+      : `<span class="ac-ok">✓${rem}</span>`;
     return `<div class="ac-item" onmousedown="selectProd(${id}, '${p.name.replace(/'/g,"\\'")}', ${p.price})">
-      <span>${p.name}</span>${badge}
+      <span class="ac-name">${p.name}</span>${badge}
     </div>`;
   }).join('');
   list.style.display = 'block';
@@ -197,10 +249,10 @@ window.addEventListener('scroll', hideAllAC, true);
 window.addEventListener('resize', hideAllAC);
 
 function getItems() {
-  const rows = document.querySelectorAll('#itemsBody tr');
+  const rows = document.querySelectorAll('[id^="row-"]');
   const items = [];
-  rows.forEach(tr => {
-    const id = tr.id.replace('row-', '');
+  rows.forEach(el => {
+    const id = el.id.replace('row-', '');
     const name = (document.getElementById(`prod-${id}`)?.value || '').trim();
     const qty = parseFloat(document.getElementById(`qty-${id}`)?.value || 0);
     const price = parseFloat(document.getElementById(`price-${id}`)?.value || 0);
@@ -243,6 +295,7 @@ async function saveInvoice() {
       document.getElementById('custPhone').value = '';
       document.getElementById('custNotes').value = '';
       document.getElementById('itemsBody').innerHTML = '';
+      document.getElementById('mobileItems').innerHTML = '';
       recalcGrand();
     } else {
       alert('Error: ' + (d.error || 'Unknown error'));
