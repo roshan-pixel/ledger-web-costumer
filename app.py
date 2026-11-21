@@ -71,19 +71,9 @@ def next_invoice_no():
 # ── Page Routes ──────────────────────────────────────────────────────────────
 
 @app.route('/')
-@app.route('/dashboard')
-def dashboard():
-    return render_template('dashboard.html')
-
-
 @app.route('/invoice')
 def invoice():
     return render_template('invoice.html')
-
-
-@app.route('/invoice_history')
-def invoice_history():
-    return render_template('invoice_history.html')
 
 
 @app.route('/inventory')
@@ -211,14 +201,6 @@ def api_get_invoice(inv_id):
     return jsonify(dict(row))
 
 
-@app.route('/api/customer_invoice/<int:inv_id>/cancel', methods=['POST'])
-def api_cancel_invoice(inv_id):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("UPDATE customer_invoices SET status='cancelled' WHERE id=?", (inv_id,))
-    conn.commit()
-    conn.close()
-    return jsonify({'success': True})
 
 
 # ── Error Handlers ────────────────────────────────────────────────────────────
