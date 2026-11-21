@@ -438,6 +438,7 @@ document.getElementById('dsCode').addEventListener('keydown', e => {
   if (e.key === 'Enter') { e.preventDefault(); lookupDS(); }
 });
 
+fetch('/api/warm').catch(()=>{});  // wake ledger + preload DS lists
 loadProducts().then(() => addRow());
 </script>
 {% endblock %}

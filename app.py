@@ -6,6 +6,9 @@ from pathlib import Path
 from flask import Flask, jsonify, request, render_template
 import urllib.request
 import urllib.parse
+import time
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
@@ -39,6 +42,7 @@ def init_db():
             notes TEXT DEFAULT ''
         )
     ''')
+    c.execute('CREATE TABLE IF NOT EXISTS ds_cache (ds_code TEXT PRIMARY KEY, ds_name TEXT, mobile TEXT)')
     try:
         c.execute("ALTER TABLE customer_invoices ADD COLUMN ds_code TEXT DEFAULT ''")
     except Exception:
@@ -134,35 +138,116 @@ def api_stock_check():
 
 # ── DS Lookup API (live-proxied from main Ledger Web) ────────────────────────
 
+_cache = {}
+_cache_lock = threading.Lock()
+
+
+def _cached_fetch(path, ttl=600, timeout=25):
+    """Fetch from ledger with an in-memory TTL cache (stale copy used if upstream fails)."""
+    now = time.time()
+    with _cache_lock:
+        hit = _cache.get(path)
+    if hit and now - hit[0] < ttl:
+        return hit[1]
+    data = _fetch_ledger(path, timeout=timeout)
+    ok = not (isinstance(data, dict) and 'error' in data and len(data) == 1)
+    if ok:
+        with _cache_lock:
+            _cache[path] = (now, data)
+        return data
+    return hit[1] if hit else data
+
+
+def _warm_ledger():
+    """Wake the (sleeping) main ledger and preload the lookup lists."""
+    for path in ('/api/mizoram_bronze', '/api/invoice/list'):
+        try:
+            _cached_fetch(path, timeout=60)
+        except Exception:
+            pass
+
+
+@app.route('/api/warm')
+def api_warm():
+    threading.Thread(target=_warm_ledger, daemon=True).start()
+    return jsonify({'ok': True})
+
+
+def _lookup_customer(ds_code):
+    data = _cached_fetch(f'/api/customer?ds_code={urllib.parse.quote(ds_code)}', ttl=300)
+    if isinstance(data, dict) and 'error' not in data:
+        return data
+    return None
+
+
+def _lookup_bronze(ds_code):
+    bronze = _cached_fetch('/api/mizoram_bronze')
+    if isinstance(bronze, list):
+        for row in bronze:
+            if str(row.get('ds_id', '')).upper() == ds_code:
+                return {'ds_code': row.get('ds_id', ''), 'ds_name': row.get('ds_name', ''),
+                        'mobile': row.get('phone_no', '')}
+    return None
+
+
+def _lookup_invoices(ds_code):
+    inv_data = _cached_fetch('/api/invoice/list')
+    if isinstance(inv_data, list):
+        for r in inv_data:
+            if str(r.get('ds_code', '')).upper() == ds_code:
+                return {'ds_code': ds_code, 'ds_name': r.get('customer_name', ''), 'mobile': ''}
+    return None
+
+
+def _cache_get(ds_code):
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT ds_name, mobile FROM ds_cache WHERE ds_code=?", (ds_code,))
+    row = c.fetchone(); conn.close()
+    return {'ds_code': ds_code, 'ds_name': row[0], 'mobile': row[1]} if row else None
+
+
+def _cache_put(d):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT OR REPLACE INTO ds_cache (ds_code, ds_name, mobile) VALUES (?,?,?)",
+              (d['ds_code'], d.get('ds_name', ''), d.get('mobile', '')))
+    conn.commit(); conn.close()
+
+
 @app.route('/api/ds_lookup')
 def api_ds_lookup():
     ds_code = request.args.get('ds_code', '').strip().upper()
     if not ds_code:
         return jsonify({'error': 'ds_code required'}), 400
 
-    # 1. Try customers table (full profile)
-    data = _fetch_ledger(f'/api/customer?ds_code={urllib.parse.quote(ds_code)}')
-    if 'error' not in data:
-        return jsonify(data)
+    # 1. Previously looked-up DS (instant)
+    hit = _cache_get(ds_code)
+    if hit:
+        return jsonify(hit)
 
-    # 2. Fallback: search mizoram_bronze by ds_id (always available)
-    bronze = _fetch_ledger('/api/mizoram_bronze')
-    if isinstance(bronze, list):
-        for row in bronze:
-            if str(row.get('ds_id', '')).upper() == ds_code:
-                return jsonify({
-                    'ds_code': row.get('ds_id', ''),
-                    'ds_name': row.get('ds_name', ''),
-                    'mobile':  row.get('phone_no', ''),
-                })
+    # 2. Live AWPL portal lookup (headless browser, same method as Ledger Web)
+    try:
+        from ds_lookup_api import fetch_ds_from_portal
+        data = fetch_ds_from_portal(ds_code)
+        if data:
+            _cache_put(data)
+            return jsonify(data)
+    except Exception as ex:
+        print('Portal lookup error:', ex)
 
-    # 3. Fallback: search invoice list by ds_code
-    inv_data = _fetch_ledger('/api/invoice/list')
-    if isinstance(inv_data, list):
-        for r in inv_data:
-            if str(r.get('ds_code', '')).upper() == ds_code:
-                return jsonify({'ds_code': ds_code, 'ds_name': r.get('customer_name', ''), 'mobile': ''})
-
+    # 3. Fallback: main Ledger Web sources, queried in parallel
+    funcs = [_lookup_customer, _lookup_bronze, _lookup_invoices]
+    results = [None] * len(funcs)
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        futs = {ex.submit(f, ds_code): i for i, f in enumerate(funcs)}
+        for fut in as_completed(futs):
+            try:
+                results[futs[fut]] = fut.result()
+            except Exception:
+                pass
+    for r in results:
+        if r:
+            _cache_put(r)
+            return jsonify(r)
     return jsonify({'error': 'DS Code not found'}), 404
 
 
