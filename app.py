@@ -52,7 +52,7 @@ init_db()
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-def _fetch_ledger(path, timeout=10):
+def _fetch_ledger(path, timeout=55):
     """Fetch JSON from the main Ledger Web API."""
     url = f"{LEDGER_WEB_URL}{path}"
     try:
