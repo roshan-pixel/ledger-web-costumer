@@ -42,7 +42,7 @@
   </div>
 </div>
 
-<div class="card">
+<div class="card" id="tableCard">
   <div class="table-wrap">
     <table>
       <thead id="tableHead"></thead>
@@ -52,6 +52,7 @@
     </table>
   </div>
 </div>
+<div id="cardGrid" style="display:none;"></div>
 {% endblock %}
 
 {% block scripts %}
@@ -109,6 +110,13 @@ function stockBadge(rem) {
 }
 
 function render(rows) {
+  if (window.innerWidth <= 768) { renderCards(rows); return; }
+  renderTable(rows);
+}
+
+function renderTable(rows) {
+  document.getElementById('tableCard').style.display = '';
+  document.getElementById('cardGrid').style.display = 'none';
   if (!rows.length) {
     document.getElementById('tableBody').innerHTML =
       '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem;">No products found</td></tr>';
@@ -117,19 +125,50 @@ function render(rows) {
   const colsToShow = ['Product Name','Item Name','Product','Price/Pc (Rs.)','Price','Remaining Qty','Remaining','Category']
     .filter(h => shownHeaders.includes(h) || h === 'Category');
   const uniqueCols = [...new Set(colsToShow)];
-
   document.getElementById('tableHead').innerHTML = '<tr>' +
     uniqueCols.map(h => `<th>${h}</th>`).join('') + '</tr>';
-
   const remKey = uniqueCols.find(h => h.includes('Remaining'));
   document.getElementById('tableBody').innerHTML = rows.map(row => {
     return '<tr>' + uniqueCols.map(h => {
       if (h === remKey) return `<td>${stockBadge(row[h])}</td>`;
-      const v = row[h] ?? '—';
-      return `<td>${v}</td>`;
+      return `<td>${row[h] ?? '—'}</td>`;
     }).join('') + '</tr>';
   }).join('');
 }
+
+function renderCards(rows) {
+  document.getElementById('tableCard').style.display = 'none';
+  const grid = document.getElementById('cardGrid');
+  grid.style.display = 'grid';
+  grid.style.gridTemplateColumns = '1fr 1fr';
+  grid.style.gap = '.75rem';
+  if (!rows.length) {
+    grid.innerHTML = '<div style="color:var(--muted);padding:2rem;text-align:center;grid-column:1/-1;">No products found</div>';
+    return;
+  }
+  const nameKey = shownHeaders.find(h => ['Product Name','Item Name','Product'].includes(h)) || 'Product Name';
+  const remKey = shownHeaders.find(h => h.includes('Remaining'));
+  const priceKey = shownHeaders.find(h => h.includes('Price'));
+  grid.innerHTML = rows.map(row => {
+    const name = row[nameKey] || '—';
+    const rem = remKey ? row[remKey] : null;
+    const price = priceKey ? row[priceKey] : null;
+    const cat = row['Category'] || '';
+    return `<div class="card-sm" style="border-radius:12px;padding:.9rem;">
+      <div style="font-weight:600;font-size:.85rem;margin-bottom:.4rem;line-height:1.3;">${name}</div>
+      ${cat ? `<div style="font-size:.7rem;color:var(--muted);margin-bottom:.5rem;">${cat}</div>` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.3rem;">
+        ${rem !== null ? stockBadge(rem) : ''}
+        ${price ? `<span style="font-size:.8rem;color:var(--muted);">₹${price}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.addEventListener('resize', () => render(
+  document.getElementById('cardGrid').children.length || document.getElementById('tableBody').children.length
+    ? allData : []
+));
 
 function filter() {
   const q = document.getElementById('searchInput').value.toLowerCase();

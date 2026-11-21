@@ -371,6 +371,40 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .ac-low { color: var(--yellow); font-size: .7rem; font-weight: 700; }
 .ac-ok  { color: var(--green); font-size: .7rem; font-weight: 700; }
 
+/* ── DISEASE GUIDE LAYOUT ────────────────────────── */
+.dg-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.dg-list-panel {
+  flex: 0 0 300px;
+  max-height: 72vh;
+  overflow-y: auto;
+}
+
+.dg-detail-panel { flex: 1; }
+
+.dg-back-btn {
+  display: none;
+  align-items: center;
+  gap: .4rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: .9rem;
+  font-weight: 600;
+  padding: .6rem 1rem;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  position: sticky;
+  top: calc(var(--topbar-h) + .5rem);
+  z-index: 10;
+}
+
 /* ── PRINT ───────────────────────────────────────── */
 @media print {
   .sidebar, .topbar, .sidebar-overlay, .no-print { display: none !important; }
@@ -433,6 +467,14 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
   /* grand total smaller */
   #grandTotal { font-size: 1.5rem !important; }
+}
+
+/* ── Disease Guide mobile ───────────────────────── */
+@media (max-width: 768px) {
+  .dg-layout { display: block; }
+  .dg-list-panel { max-height: none; }
+  .dg-detail-panel { display: none; }
+  .dg-back-btn { display: flex; }
 }
 
 /* ── VERY SMALL (≤ 400px) ───────────────────────── */

@@ -16,21 +16,26 @@
   </select>
 </div>
 
-<div style="display:flex;gap:1.5rem;align-items:flex-start;">
+<div class="dg-layout">
   <!-- List Panel -->
-  <div style="flex:0 0 320px;max-height:72vh;overflow-y:auto;" id="listPanel">
+  <div class="dg-list-panel" id="listPanel">
     <div id="diseaseList" style="display:flex;flex-direction:column;gap:.5rem;">
       <div style="color:var(--muted);padding:2rem;text-align:center;">Loading…</div>
     </div>
   </div>
 
   <!-- Detail Panel -->
-  <div style="flex:1;" id="detailPanel">
+  <div class="dg-detail-panel" id="detailPanel">
     <div class="card" style="color:var(--muted);text-align:center;padding:3rem;">
       Select a disease from the list to see details
     </div>
   </div>
 </div>
+
+<!-- Mobile back button (hidden on desktop) -->
+<button class="dg-back-btn" id="dgBackBtn" onclick="showList()" style="display:none;">
+  ← Back to list
+</button>
 {% endblock %}
 
 {% block scripts %}
@@ -94,9 +99,26 @@ function renderList() {
   }).join('');
 }
 
+function isMobile() { return window.innerWidth <= 768; }
+
+function showList() {
+  document.getElementById('listPanel').style.display = '';
+  document.getElementById('detailPanel').style.display = 'none';
+  document.getElementById('dgBackBtn').style.display = 'none';
+}
+
+function showDetail() {
+  if (isMobile()) {
+    document.getElementById('listPanel').style.display = 'none';
+    document.getElementById('detailPanel').style.display = '';
+    document.getElementById('dgBackBtn').style.display = 'flex';
+  }
+}
+
 async function selectDisease(idx) {
   selectedIdx = idx;
   renderList();
+  showDetail();
   document.getElementById('detailPanel').innerHTML = '<div class="card" style="color:var(--muted);text-align:center;padding:2rem;">Loading…</div>';
 
   try {
