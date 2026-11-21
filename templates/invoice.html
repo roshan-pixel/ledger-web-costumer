@@ -4,7 +4,7 @@
 {% block content %}
 <h1 class="page-title">Create Invoice</h1>
 
-<div class="card" style="max-width:860px;margin:0 auto;">
+<div class="card" style="max-width:860px;margin:0 auto;overflow:visible;">
   <!-- Customer Info -->
   <div class="grid-2" style="margin-bottom:1rem;">
     <div>
@@ -43,7 +43,7 @@
       <button class="btn btn-ghost" id="addRowBtn" style="font-size:.82rem;" onclick="addRow()">+ Add Item</button>
     </div>
 
-    <div class="table-wrap">
+    <div class="table-wrap" style="overflow:visible;">
       <table>
         <thead><tr>
           <th style="width:42%;">Product</th>
@@ -139,10 +139,19 @@ function recalcGrand() {
 }
 
 function onProdInput(id) {
-  const val = (document.getElementById(`prod-${id}`)?.value || '').toLowerCase();
-  const list = document.getElementById(`ac-${id}`);
+  const inp = document.getElementById(`prod-${id}`);
+  const val = (inp?.value || '').toLowerCase();
   const filtered = products.filter(p => p.name.toLowerCase().includes(val)).slice(0, 20);
-  if (!filtered.length) { list.style.display = 'none'; return; }
+  hideAllAC();
+  if (!filtered.length) return;
+  // position dropdown using fixed coords so it escapes overflow:hidden parents
+  const rect = inp.getBoundingClientRect();
+  const list = document.getElementById(`ac-${id}`);
+  list.style.position = 'fixed';
+  list.style.top = (rect.bottom + 4) + 'px';
+  list.style.left = rect.left + 'px';
+  list.style.width = rect.width + 'px';
+  list.style.zIndex = '9999';
   list.innerHTML = filtered.map(p => {
     const rem = p.remaining;
     const badge = rem <= 0
@@ -150,11 +159,15 @@ function onProdInput(id) {
       : rem <= 5
       ? `<span class="ac-low">Low: ${rem}</span>`
       : `<span class="ac-ok">In stock: ${rem}</span>`;
-    return `<div class="ac-item" onclick="selectProd(${id}, '${p.name.replace(/'/g,"\\'")}', ${p.price})">
+    return `<div class="ac-item" onmousedown="selectProd(${id}, '${p.name.replace(/'/g,"\\'")}', ${p.price})">
       <span>${p.name}</span>${badge}
     </div>`;
   }).join('');
   list.style.display = 'block';
+}
+
+function hideAllAC() {
+  document.querySelectorAll('.ac-list').forEach(l => l.style.display = 'none');
 }
 
 function selectProd(id, name, price) {
@@ -165,10 +178,11 @@ function selectProd(id, name, price) {
 }
 
 document.addEventListener('click', e => {
-  document.querySelectorAll('.ac-list').forEach(l => {
-    if (!l.parentElement.contains(e.target)) l.style.display = 'none';
-  });
+  if (!e.target.closest('.ac-wrapper')) hideAllAC();
 });
+
+window.addEventListener('scroll', hideAllAC, true);
+window.addEventListener('resize', hideAllAC);
 
 function getItems() {
   const rows = document.querySelectorAll('#itemsBody tr');
