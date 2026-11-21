@@ -139,8 +139,31 @@ def api_ds_lookup():
     ds_code = request.args.get('ds_code', '').strip().upper()
     if not ds_code:
         return jsonify({'error': 'ds_code required'}), 400
+
+    # 1. Try customers table (full profile)
     data = _fetch_ledger(f'/api/customer?ds_code={urllib.parse.quote(ds_code)}')
-    return jsonify(data)
+    if 'error' not in data:
+        return jsonify(data)
+
+    # 2. Fallback: search mizoram_bronze by ds_id (always available)
+    bronze = _fetch_ledger('/api/mizoram_bronze')
+    if isinstance(bronze, list):
+        for row in bronze:
+            if str(row.get('ds_id', '')).upper() == ds_code:
+                return jsonify({
+                    'ds_code': row.get('ds_id', ''),
+                    'ds_name': row.get('ds_name', ''),
+                    'mobile':  row.get('phone_no', ''),
+                })
+
+    # 3. Fallback: search invoice list by ds_code
+    inv_data = _fetch_ledger('/api/invoice/list')
+    if isinstance(inv_data, list):
+        for r in inv_data:
+            if str(r.get('ds_code', '')).upper() == ds_code:
+                return jsonify({'ds_code': ds_code, 'ds_name': r.get('customer_name', ''), 'mobile': ''})
+
+    return jsonify({'error': 'DS Code not found'}), 404
 
 
 # ── Disease Guide API (live-proxied from main Ledger Web) ─────────────────────
